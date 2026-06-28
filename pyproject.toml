@@ -1,0 +1,23 @@
+[project]
+name = "asr"
+version = "0.1.0"
+description = "Local speech-to-text CLI powered by sherpa-onnx (Qwen3-ASR / SenseVoice / Paraformer / Whisper)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "sherpa-onnx>=1.13",
+    "sherpa-onnx-core>=1.13",
+    "typer>=0.12",
+    "numpy>=1.21",
+]
+
+[project.scripts]
+asr = "asr.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asr"]

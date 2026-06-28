@@ -10,6 +10,32 @@ from __future__ import annotations
 _WINDOW = 512  # silero VAD window size (samples @16 kHz)
 
 
+def _enforce_cap(segments, sr: int, max_sec: float):
+    """Hard-cap each segment to ``max_sec``.
+
+    silero's ``max_speech_duration`` is not a strict limit — continuous speech
+    can overrun it (sometimes by minutes on dense podcasts/monologues) — which
+    lets an over-long segment reach the Qwen3-ASR encoder and OOM the process.
+    We slice any segment longer than the cap into cap-sized chunks so per-segment
+    memory stays bounded regardless of VAD behaviour.
+    """
+    cap = int(max_sec * sr)
+    if cap <= 0:
+        return segments
+    out = []
+    for s_ms, e_ms, audio in segments:
+        n = len(audio)
+        if n <= cap:
+            out.append((s_ms, e_ms, audio))
+            continue
+        for off in range(0, n, cap):
+            chunk = audio[off:off + cap]
+            cs = s_ms + int(off * 1000 / sr)
+            ce = cs + int(len(chunk) * 1000 / sr)
+            out.append((cs, ce, chunk))
+    return out
+
+
 def segment(samples, sr: int, vad_model: str, *, max_segment_sec: float = 20.0,
             min_silence_ms: int = 300, chunk_windows: int = 8):
     """Return list of (start_ms, end_ms, seg_samples) speech segments."""
@@ -48,4 +74,4 @@ def segment(samples, sr: int, vad_model: str, *, max_segment_sec: float = 20.0,
 
     vad.flush()
     drain()
-    return segments
+    return _enforce_cap(segments, sr, max_segment_sec)
